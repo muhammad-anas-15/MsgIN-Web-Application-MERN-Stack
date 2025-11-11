@@ -4,90 +4,80 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
-import http from "http";
-import connectDB from "./lib/db.js";
+import cookieParser from "cookie-parser";
+import { Server } from "socket.io";
+
+import connectDB from "./lib/db.js"; // We will call this on a request
 import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
-import { Server } from "socket.io";
-import cookieParser from "cookie-parser";   // ✅ ADD THIS LINE
+import cloudinary from './lib/cloudinary.js';
 
-// 2. Import Cloudinary instance (which is now unconfigured)
-import cloudinary from './lib/cloudinary.js'; // Adjust path if necessary
-
-// 3. 🎯 CRITICAL FIX: Configure Cloudinary NOW that process.env is ready
+// 🎯 CRITICAL FIX: Configure Cloudinary NOW that process.env is ready
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-
 console.log("✅ MONGODB_URI:", process.env.MONGODB_URI);
 
-
-// Create Express app and HTTP server
+// Create Express app
 const app = express();
-const server = http.createServer(app);
 
-// Initialize socket.io server
-export const io = new Server(server, {
-  cors: { origin: "*" },
-});
-
-// Store online users
-export const userSocketMap = {};
-
-// Socket connection handler
-io.on("connection", (socket) => {
-  const userId = socket.handshake.query.userId;
-  console.log("User Connected:", userId);
-
-  if (userId) userSocketMap[userId] = socket.id;
-
-  io.emit("getOnlineUsers", Object.keys(userSocketMap));
-
-  socket.on("disconnect", () => {
-    console.log("User Disconnected:", userId);
-    delete userSocketMap[userId];
-    io.emit("getOnlineUsers", Object.keys(userSocketMap));
-  });
-});
+// --- Socket.IO setup (for local dev / different host) ---
+// Note: Vercel serverless functions do NOT support long-lived connections.
+// Socket.IO will require a dedicated server (e.g., Redis / Fly.io) for production.
 
 // Middleware setup
 app.use(express.json({ limit: "4mb" }));
-app.use(cookieParser());   // ✅ ADD THIS LINE RIGHT AFTER express.json()
+app.use(cookieParser());
+
 // ✅ Updated CORS setup to allow both frontend ports safely
-const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://msg-in-web-application-mern-stack-b.vercel.app" // Add your Vercel frontend domain here
+];
 
 app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true, // Important for cookies / tokens
-  })
+    cors({
+        origin: function (origin, callback) {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error("Not allowed by CORS"));
+            }
+        },
+        credentials: true, // Important for cookies / tokens
+    })
 );
+
+// 🎯 CRITICAL FIX: Add a database connection middleware
+// This ensures the database connects on the first request 
+// and re-uses the connection pool for subsequent requests.
+app.use(async (req, res, next) => {
+    // Only connect if the connection is not already established
+    if (connectDB && connectDB.readyState === 0) {
+        await connectDB();
+    }
+    next();
+});
 
 // Routes
 app.get("/api/status", (req, res) => res.send("Server is live"));
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
 
-// Connect to MongoDB and start server
+// ----------------------------------------------------
+// CRITICAL: Remove server listening logic for Vercel
+// ----------------------------------------------------
+/*
 await connectDB();
-
-if(process.env.NODE_ENV !== "production")
-{
-// Port number
-  const PORT = process.env.PORT || 5000;
-  server.listen(PORT, () => console.log(`🚀 Server running on PORT: ${PORT}`));
+if(process.env.NODE_ENV !== "production") {
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, () => console.log(`🚀 Server running on PORT: ${PORT}`));
 }
+*/
 
-// export server for vercel
-export default server;
-
-
+// Export the Express application (app) for Vercel
+export default app; // 🎯 CRITICAL: Changed from server to app
