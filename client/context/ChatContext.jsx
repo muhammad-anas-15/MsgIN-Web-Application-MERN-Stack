@@ -16,7 +16,7 @@ export const ChatProvider = ({ children }) =>{
     // --- FUNCTION TO GET ALL USERS FOR SIDEBAR ---
     const getUsers = useCallback(async ()=>{
         try {
-            const {data} = await axios.get("/api/messages/users");
+            const {data} = await axios.get("/api/messages/users" , { withCredentials: true });
             
             if(data.success){
                 setUsers(data.users)
@@ -31,7 +31,7 @@ export const ChatProvider = ({ children }) =>{
     // --- FUNCTION TO GET MESSAGES FOR SELECTED USER ---
     const getMessages = useCallback (async(userId)=>{
         try {
-            const {data} = await axios.get(`/api/messages/${userId}`);
+            const {data} = await axios.get(`/api/messages/${userId}` , { withCredentials: true });
             if(data.success){
                 setMessages(data.messages)
             }
@@ -44,7 +44,7 @@ export const ChatProvider = ({ children }) =>{
     // --- FUNCTION TO SEND MESSAGE TO SELECTED USER ---
     const sendMessage = useCallback ( async (messageData) =>{
         try {
-            const {data} = await axios.post(`/api/messages/send/${selectedUser._id}`, messageData);
+            const {data} = await axios.post(`/api/messages/send/${selectedUser._id}`, messageData , { withCredentials: true });
             
             if(data.success){
                 setMessages((prevMessages) => [...prevMessages, data.newMessage])

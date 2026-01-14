@@ -4,17 +4,17 @@ import Message from "../models/message.js";
 import User from "../models/User.js";
 import { io, userSocketMap } from "../server.js";
 
-// ✅ Get all users except the logged-in one
+// Get all users except the logged-in one
 const getUsersForSidebar = async (req, res) => {
   try 
   {
      // The user ID is added to req.user by the protectRoute middleware
      const userId = req.user._id;
 
-     // ✅ Get all other users
+     //  Get all other users
     const filteredUsers = await User.find({ _id: { $ne: userId } }).select("-password");
 
-    // ✅ Count unseen messages
+    // Count unseen messages
     const unseenMessages = {};
     const promises = filteredUsers.map(async (user) => {
       const messages = await Message.find({
@@ -38,7 +38,7 @@ const getUsersForSidebar = async (req, res) => {
   }
 };
 
-// ✅ Get all messages for selected user
+// Get all messages for selected user
 const getMessages = async (req, res) => {
   try {
     const { id: selectedUserId } = req.params;
@@ -63,7 +63,7 @@ const getMessages = async (req, res) => {
   }
 };
 
-// ✅ Mark message as seen
+//  Mark message as seen
 const markMessageAsSeen = async (req, res) => {
   try {
     const { id } = req.params;
@@ -75,7 +75,7 @@ const markMessageAsSeen = async (req, res) => {
   }
 };
 
-// ✅ Send message
+// Send message
 const sendMessage = async (req, res) => {
   try {
     const { text, image } = req.body;

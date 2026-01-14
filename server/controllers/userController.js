@@ -2,146 +2,68 @@ import mongoose from "mongoose";
 import cloudinary from "../lib/cloudinary.js";
 import Message from "../models/message.js";
 import User from "../models/User.js";
+import bcrypt from "bcryptjs";
 import { io, userSocketMap } from "../server.js";
+import { generateToken } from "../lib/utils.js";
 
-/* ============================================================
-   ✅ Get all users except the logged-in one
-   ============================================================ */
-const getUsersForSidebar = async (req, res) => {
+
+// signup a new user
+
+export const signup = async (req,res) => {
+  const {fullName , email , password , bio} = req.body;
+
   try {
-    // The user ID is added to req.user by the protectRoute middleware
-    const userId = req.user._id;
+    if(!fullName || !email || !password || !bio){
+      return res.json({success: false , message: "Missing Details"})
+    }
+    const user = await User.findOne({email});
 
-    // ✅ Get all other users (exclude current user)
-    const filteredUsers = await User.find({ _id: { $ne: userId } }).select(
-      "-password"
-    );
-
-    // ✅ Count unseen messages for each user
-    const unseenMessages = {};
-    const promises = filteredUsers.map(async (user) => {
-      const messages = await Message.find({
-        senderId: user._id,
-        receiverId: userId,
-        seen: false,
-      });
-
-      if (messages.length > 0) {
-        unseenMessages[user._id] = messages.length;
-      }
-    });
-
-    await Promise.all(promises);
-
-    res.json({ success: true, users: filteredUsers, unseenMessages });
-  } catch (error) {
-    console.error("Error in getUsersForSidebar:", error.message);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal server error while fetching users.",
-      });
-  }
-};
-
-/* ============================================================
-   ✅ Get all messages between logged-in user and selected user
-   ============================================================ */
-const getMessages = async (req, res) => {
-  try {
-    const { id: selectedUserId } = req.params;
-    const myId = req.user._id;
-
-    const messages = await Message.find({
-      $or: [
-        { senderId: myId, receiverId: selectedUserId },
-        { senderId: selectedUserId, receiverId: myId },
-      ],
-    });
-
-    // ✅ Mark unseen messages from selected user as seen
-    await Message.updateMany(
-      { senderId: selectedUserId, receiverId: myId, seen: false },
-      { seen: true }
-    );
-
-    res.json({ success: true, messages });
-  } catch (error) {
-    console.error("Error in getMessages:", error.message);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal server error while fetching messages.",
-      });
-  }
-};
-
-/* ============================================================
-   ✅ Mark single message as seen
-   ============================================================ */
-const markMessageAsSeen = async (req, res) => {
-  try {
-    const { id } = req.params;
-    await Message.findByIdAndUpdate(id, { seen: true });
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Error in markMessageAsSeen:", error.message);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal server error while marking message as seen.",
-      });
-  }
-};
-
-/* ============================================================
-   ✅ Send new message (with optional image via Cloudinary)
-   ============================================================ */
-const sendMessage = async (req, res) => {
-  try {
-    const { text, image } = req.body;
-    const receiverId = req.params.id;
-    const senderId = req.user._id;
-
-    let imageUrl;
-
-    // Upload image to Cloudinary if provided
-    if (image) {
-      const uploadResponse = await cloudinary.uploader.upload(image);
-      imageUrl = uploadResponse.secure_url;
+    if(user){
+      return res.json({success: false , message: "Account lready exists"})
     }
 
-    const newMessage = await Message.create({
-      senderId,
-      receiverId,
-      text,
-      image: imageUrl,
-    });
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password , salt);
 
-    // ✅ Emit message to receiver via Socket.io if they’re online
-    const receiverSocketId = userSocketMap[receiverId];
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", newMessage);
-    }
+    const newUser = await User.create({
+      fullName , email , password: hashedPassword ,bio
+    })
 
-    res.json({ success: true, newMessage });
+    const token = generateToken(newUser._id)
+
+    res.json({success: true , userData : newUser , token , message : "Account created successfully"})
+
   } catch (error) {
-    console.error("Error in sendMessage:", error.message);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal server error while sending message.",
-      });
+    console.log(error.message)
+    res.json({success: false ,message : error.message})
   }
-};
+}
 
-/* ============================================================
-   ✅ Check authentication & return user for persistent login
-   ============================================================ */
+// controller to login a user
+
+export const login = async(req,res)=>{
+  try {
+    const {email , password} =req.body;
+    const userData = await User.findOne({email})
+
+    const isPasswordCorrect = await bcrypt.compare(password , userData.password);
+
+    if(!isPasswordCorrect){
+      return res.json({success:false , message:"Invalid credentials"})
+    }
+    const token = generateToken(userData._id)
+
+    res.json({success: true , userData ,token , message : "Login successful"})
+
+  } catch (error) {
+     console.log(error.message)
+    res.json({success: false ,message : error.message})
+  }
+}
+
+
+//Check authentication & return user for persistent login
+
 const checkAuth = async (req, res) => {
   try {
     if (!req.user) {
@@ -169,10 +91,30 @@ const checkAuth = async (req, res) => {
   }
 };
 
+//controller to update user profile details
+
+export const updateProfile = async(req,res)=> {
+  try {
+    const {profilePic , bio , fullName} = req.body;
+
+    const userId = req.user._id;
+    let updatedUser;
+
+    if(!profilePic){
+      updateUser = await User.findByIdAndUpdate(userId , {bio, fullName}, {new:true});
+    }
+    else{
+      const upload = await cloudinary.uploader.upload(profilePic);
+
+      updatedUser = await User.findByIdAndUpdate(userId , {profilePic: upload.secure_url , bio , fullName} , {new: true});
+    }
+    res.json({success: true , user : updatedUser})
+  } catch (error) {
+    console.log(error.message);
+    res.json({success: false ,message : error.message})
+  }
+}
+
 export {
-  getUsersForSidebar,
-  getMessages,
-  markMessageAsSeen,
-  sendMessage,
   checkAuth,
 };

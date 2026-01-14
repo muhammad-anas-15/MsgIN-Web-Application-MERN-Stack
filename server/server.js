@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-// ✅ Load environment variables FIRST
+// Load environment variables FIRST
 dotenv.config();
 
 import express from "express";
@@ -9,21 +9,7 @@ import connectDB from "./lib/db.js";
 import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
-import cookieParser from "cookie-parser";   // ✅ ADD THIS LINE
-
-// 2. Import Cloudinary instance (which is now unconfigured)
-import cloudinary from './lib/cloudinary.js'; // Adjust path if necessary
-
-// 3. 🎯 CRITICAL FIX: Configure Cloudinary NOW that process.env is ready
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-
-console.log("✅ MONGODB_URI:", process.env.MONGODB_URI);
-
+import cookieParser from "cookie-parser";  
 
 // Create Express app and HTTP server
 const app = express();
@@ -55,8 +41,9 @@ io.on("connection", (socket) => {
 
 // Middleware setup
 app.use(express.json({ limit: "4mb" }));
-app.use(cookieParser());   // ✅ ADD THIS LINE RIGHT AFTER express.json()
-// ✅ Updated CORS setup to allow both frontend ports safely
+app.use(cookieParser());   //  ADD THIS LINE RIGHT AFTER express.json()
+
+//  Updated CORS setup to allow both frontend ports safely
 const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
 
 app.use(
