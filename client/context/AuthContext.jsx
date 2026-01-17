@@ -6,7 +6,7 @@ import { io } from "socket.io-client";
 export const AuthContext = createContext();
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
-console.log("✅ Frontend using backend URL:", backendUrl);
+console.log(" Frontend using backend URL:", backendUrl);
 
 // Set base URL for Axios
 axios.defaults.baseURL = backendUrl;
@@ -105,7 +105,9 @@ export const AuthProvider = ({ children }) => {
   // Connect Socket
   // -------------------------
   const connectSocket = (userData) => {
-    if (!userData || socket?.connected) return;
+    if (!userData) return;
+
+    if (socket) return;
     
     //Pass the JWT token for socket authentication
     const token = localStorage.getItem("token")
@@ -113,6 +115,9 @@ export const AuthProvider = ({ children }) => {
     const newSocket = io(backendUrl, {
       query: { userId: userData._id },
       
+      // for Railway + Vercel
+    withCredentials: true,
+
       // Pass token in the 'auth' object for the server to verify the user
       auth: { token: token } 
     });

@@ -17,7 +17,11 @@ const server = http.createServer(app);
 
 // Initialize socket.io server
 export const io = new Server(server, {
-  cors: { origin: "*" },
+  cors: {
+    origin: process.env.CLIENT_URL,
+    methods: ["GET", "POST"],
+    credentials: true
+  }
 });
 
 // Store online users
@@ -44,18 +48,12 @@ app.use(express.json({ limit: "4mb" }));
 app.use(cookieParser());   //  ADD THIS LINE RIGHT AFTER express.json()
 
 //  Updated CORS setup to allow both frontend ports safely
-const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
+// const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true, // Important for cookies / tokens
+    origin: process.env.CLIENT_URL,
+    credentials: true
   })
 );
 
