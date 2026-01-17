@@ -57,6 +57,11 @@ app.use(
   })
 );
 
+// ✅ Add this Root Route for Health Checks
+app.get("/", (req, res) => {
+  res.send("MsgIN Backend is Running! 🚀");
+});
+
 // Routes
 app.get("/api/status", (req, res) => res.send("Server is live"));
 app.use("/api/auth", userRouter);
