@@ -68,14 +68,31 @@ app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
 
 // Connect to MongoDB and start server
-await connectDB();
+// await connectDB();
 
+// const PORT = process.env.PORT || 5000;
+// server.listen(PORT, "0.0.0.0", () => {
+//   console.log(`🚀 Server running on PORT: ${PORT}`);
+// });
+
+// // export server for vercel
+// export default server;
+
+// 🚀 START SERVER INSTANTLY (Don't wait for DB)
 const PORT = process.env.PORT || 5000;
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on PORT: ${PORT}`);
+  
+  // Connect to DB in background
+  connectDB()
+    .then(() => console.log("✅ Database Connected"))
+    .catch((err) => console.log("❌ DB Connection Error:", err));
 });
 
 // export server for vercel
 export default server;
+
+
 
 
