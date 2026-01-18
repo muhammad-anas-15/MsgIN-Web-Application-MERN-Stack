@@ -36,7 +36,7 @@ io.on("connection", (socket) => {
 
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  socket.on("disconnect", () => {
+socket.on("disconnect", () => {
     console.log("User Disconnected:", userId);
     delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
@@ -45,7 +45,7 @@ io.on("connection", (socket) => {
 
 // Middleware setup
 app.use(express.json({ limit: "4mb" }));
-app.use(cookieParser());   //  ADD THIS LINE RIGHT AFTER express.json()
+app.use(cookieParser());  
 
 //  Updated CORS setup to allow both frontend ports safely
 // const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
