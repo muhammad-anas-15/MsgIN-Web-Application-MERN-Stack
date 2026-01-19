@@ -1,5 +1,4 @@
 import dotenv from "dotenv";
-// Load environment variables FIRST
 dotenv.config();
 
 import express from "express";
@@ -9,16 +8,23 @@ import connectDB from "./lib/db.js";
 import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
-import cookieParser from "cookie-parser";  
+import cookieParser from "cookie-parser";
 
-// Create Express app and HTTP server
+// Initialize Express App
 const app = express();
+// Create HTTP server (Needed for Socket.io)
 const server = http.createServer(app);
 
-// Initialize socket.io server
+// Initialize Socket.io
+// Note: On Vercel, this will likely fallback to polling or fail for real-time updates
 export const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    // Allow both your Local Frontend AND Vercel Frontend
+    origin: [
+      "http://localhost:5173", 
+      "https://msgin-client.vercel.app", // REPLACE THIS if your frontend link is different
+      process.env.CLIENT_URL
+    ],
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -36,63 +42,51 @@ io.on("connection", (socket) => {
 
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-socket.on("disconnect", () => {
+  socket.on("disconnect", () => {
     console.log("User Disconnected:", userId);
-    delete userSocketMap[userId];
+    if (userId) delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
 });
 
 // Middleware setup
 app.use(express.json({ limit: "4mb" }));
-app.use(cookieParser());  
+app.use(cookieParser());
 
-//  Updated CORS setup to allow both frontend ports safely
-// const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
-
+// CORS Configuration
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: [
+      "http://localhost:5173",
+      "https://msgin-client.vercel.app",
+      process.env.CLIENT_URL
+    ],
     credentials: true
   })
 );
 
-// ✅ Add this Root Route for Health Checks
+// Connect to MongoDB
+connectDB()
+  .then(() => console.log("✅ Database Connected"))
+  .catch((err) => console.log("❌ DB Connection Error:", err));
+
+// Routes
 app.get("/", (req, res) => {
   res.send("MsgIN Backend is Running! 🚀");
 });
-
-// Routes
 app.get("/api/status", (req, res) => res.send("Server is live"));
+
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
 
-// Connect to MongoDB and start server
-// await connectDB();
 
-// const PORT = process.env.PORT || 5000;
-// server.listen(PORT, "0.0.0.0", () => {
-//   console.log(`🚀 Server running on PORT: ${PORT}`);
-// });
-
-// // export server for vercel
-// export default server;
-
-// 🚀 START SERVER INSTANTLY (Don't wait for DB)
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on PORT: ${PORT}`);
-  
-  // Connect to DB in background
-  connectDB()
-    .then(() => console.log("✅ Database Connected"))
-    .catch((err) => console.log("❌ DB Connection Error:", err));
-});
+if (process.env.NODE_ENV !== "production") {
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 Server running on PORT: ${PORT}`);
+  });
+}
 
-// export server for vercel
-export default server;
-
-
-
-
+// Export the EXPRESS APP for Vercel Serverless
+export default app;
