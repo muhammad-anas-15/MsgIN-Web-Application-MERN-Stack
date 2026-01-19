@@ -10,6 +10,11 @@ import messageRouter from "./routes/messageRoutes.js";
 
 const app = express();
 
+/* ---------------- DATABASE CONNECTION ---------------- */
+// Vercel Optimization: Initiate connection immediately, don't wait for a function wrapper.
+// Mongoose will "buffer" (queue) requests until the connection is ready.
+connectDB().catch(err => console.error("Database Connection Error:", err));
+
 /* ---------------- MIDDLEWARE ---------------- */
 app.use(express.json({ limit: "4mb" }));
 app.use(cookieParser());
@@ -18,7 +23,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://msgin-client.vercel.app",
+      "https://msgin-client.vercel.app", // Ensure this matches your EXACT frontend URL
       process.env.CLIENT_URL,
     ],
     credentials: true,
@@ -37,25 +42,15 @@ app.get("/api/status", (req, res) => {
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
 
-/* ---------------- DATABASE + SERVER ---------------- */
+/* ---------------- LOCAL SERVER SETUP ---------------- */
+// Only listen to port if running locally. Vercel handles this automatically in the cloud.
 const PORT = process.env.PORT || 5000;
 
-async function startServer() {
-  try {
-    await connectDB(); 
-    console.log("MongoDB Connected");
-
-    if (process.env.NODE_ENV !== "production") {
-      app.listen(PORT, () => {
-        console.log(`🚀 Server running on PORT: ${PORT}`);
-      });
-    }
-  } catch (error) {
-    console.error("❌ Failed to start server:", error);
-  }
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on PORT: ${PORT}`);
+  });
 }
 
-startServer();
-
-// for Vercel
+// Export the app for Vercel
 export default app;
